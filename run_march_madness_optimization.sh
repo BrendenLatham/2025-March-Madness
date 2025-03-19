@@ -27,7 +27,7 @@ python3 data_collection.py
 # Step 2: Run Backtesting with Real Data
 echo -e "\n${GREEN}STEP 2: RUNNING BACKTESTING FOR PARAMETER OPTIMIZATION${RESET}"
 echo -e "${YELLOW}Testing against historical tournaments (2015-2023)...${RESET}"
-python3 run_backtesting.py --years 2015,2016,2017,2018,2019,2020,2021,2022,2023 --sims 500 --datadir historical_data
+python3 run_backtesting.py --years 2015,2016,2017,2018,2019,2020,2021,2022,2023 --sims 500
 
 # Step 3: Extract optimized parameters and save to a file
 echo -e "\n${GREEN}STEP 3: EXTRACTING OPTIMIZED PARAMETERS${RESET}"
