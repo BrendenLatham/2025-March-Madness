@@ -199,7 +199,7 @@ def adapt_simulator_to_backtester(simulator, backtester):
     
     return simulator
 
-def run_backtesting_process(simulator=None, years=None, data_dir="historical_data"):
+def run_backtesting_process(simulator=None, years=None, data_dir="historical_data", verbose=False):
     """
     Run the complete backtesting process.
     
@@ -242,7 +242,7 @@ def run_backtesting_process(simulator=None, years=None, data_dir="historical_dat
     
     # Step 5: Run initial backtests to establish baseline
     print("\nRunning initial backtests to establish baseline...")
-    baseline_metrics = backtester.run_backtests(num_simulations=100)
+    baseline_metrics = backtester.run_backtests(num_simulations=100, verbose=verbose)
     
     # Step 6: Create parameter tuner
     tuner = ParameterTuner(backtester)
