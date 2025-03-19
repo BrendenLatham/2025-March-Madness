@@ -5,6 +5,38 @@ import os
 from collections import defaultdict
 import random
 from datetime import datetime
+import sys
+import os
+
+class SuppressOutput:
+    """
+    Context manager to suppress standard output and error.
+    Use with 'with' statement to temporarily disable printing.
+    """
+    def __init__(self, suppress_stdout=True, suppress_stderr=True):
+        self.suppress_stdout = suppress_stdout
+        self.suppress_stderr = suppress_stderr
+        self.original_stdout = None
+        self.original_stderr = None
+
+    def __enter__(self):
+        if self.suppress_stdout:
+            self.original_stdout = sys.stdout
+            sys.stdout = open(os.devnull, 'w')
+        
+        if self.suppress_stderr:
+            self.original_stderr = sys.stderr
+            sys.stderr = open(os.devnull, 'w')
+
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        if self.suppress_stdout:
+            sys.stdout.close()
+            sys.stdout = self.original_stdout
+        
+        if self.suppress_stderr:
+            sys.stderr.close()
+            sys.stderr = self.original_stderr
+
 
 class MarchMadnessBacktester:
     """
@@ -184,32 +216,24 @@ class MarchMadnessBacktester:
         
         return results_df
     
-    def run_backtests(self, num_simulations=100):
-        """
-        Run backtests against multiple tournament years.
-        
-        Args:
-            num_simulations: Number of simulations to run for each year
-            
-        Returns:
-            Dictionary of aggregated metrics
-        """
+    def run_backtests(self, num_simulations=100, verbose=False):
+        """Run backtests against multiple tournament years."""
         all_metrics = defaultdict(list)
         
         for year in self.years:
             if str(year) not in self.historical_data:
                 print(f"No data available for {year}, skipping...")
                 continue
-                
+                    
             print(f"Backtesting against {year} tournament...")
             
-            # Run backtest for this year
-            metrics = self.backtest_year(year, num_simulations)
+            # Run backtest for this year with verbosity control
+            metrics = self.backtest_year(year, num_simulations, verbose=verbose)
             
             # Store metrics
             for key, value in metrics.items():
                 all_metrics[key].append(value)
-        
+            
         # Calculate averages
         average_metrics = {
             'average_bracket_score': np.mean(all_metrics['bracket_score']),
@@ -228,28 +252,27 @@ class MarchMadnessBacktester:
         
         return average_metrics
     
-    def backtest_year(self, year, num_simulations=100):
-        """
-        Backtest against a specific tournament year.
-        
-        Args:
-            year: Tournament year to test against
-            num_simulations: Number of simulations to run
-            
-        Returns:
-            Dictionary of metrics for this year
-        """
+    def backtest_year(self, year, num_simulations=100, verbose=False):
+        """Backtest against a specific tournament year."""
         year_str = str(year)
         historical_tournament = self.historical_data[year_str]
         
         # Configure the simulator for this year
         self._configure_simulator_for_year(year)
         
-        # Run simulations
-        simulation_results = self._run_simulations(num_simulations)
+        # Run simulations with or without output suppression
+        if verbose:
+            simulation_results = self._run_simulations(num_simulations)
+        else:
+            with SuppressOutput():
+                simulation_results = self._run_simulations(num_simulations)
         
-        # Generate consensus bracket
-        consensus_bracket = self._generate_consensus_bracket(simulation_results)
+        # Generate consensus bracket (also with potential output suppression)
+        if verbose:
+            consensus_bracket = self._generate_consensus_bracket(simulation_results)
+        else:
+            with SuppressOutput():
+                consensus_bracket = self._generate_consensus_bracket(simulation_results)
         
         # Evaluate against actual results
         metrics = self._evaluate_bracket(consensus_bracket, historical_tournament)
