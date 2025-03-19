@@ -1,8 +1,7 @@
-# backtesting_integration.py - Full Integration of Backtesting and Simulation
+# backtesting_integration.py - Full Integration of Backtesting and Simulation Using ESPN Data
 import os
 import json
 import pandas as pd
-import numpy as np
 from datetime import datetime
 
 # Import necessary modules
@@ -20,7 +19,7 @@ def adapt_simulator_to_backtester(simulator, backtester):
     return simulator
 
 def run_backtesting_process(simulator=None, years=None, data_dir="historical_data", verbose=False):
-    """Run the full backtesting and optimization process."""
+    """Run the full backtesting and optimization process using ESPN data."""
     print("Running backtesting process...")
     
     history_loader = HistoricalTournamentDataLoader(data_dir=data_dir)
@@ -29,8 +28,8 @@ def run_backtesting_process(simulator=None, years=None, data_dir="historical_dat
     if simulator is None:
         simulator = MarchMadnessSimulator(use_real_data=True)
     
-    backtester = MarchMadnessBacktester(simulator, years=years)
-    backtester.load_historical_tournaments(data_dir=data_dir)
+    backtester = MarchMadnessBacktester(simulator, years=years, data_dir=data_dir)
+    backtester.load_historical_tournaments()
     
     print("Running backtesting...")
     backtesting_results = backtester.run_backtests(num_simulations=500)
