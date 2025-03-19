@@ -1020,3 +1020,8 @@ class MarchMadnessSimulator:
         with open("simulated_bracket.txt", "w") as f:
             f.write(bracket)
         print("Saved bracket visualization to simulated_bracket.txt")
+
+
+    def generate_consensus_bracket(self, simulation_results):
+        """Alias method for backtesting compatibility"""
+        return {'last_simulation': simulation_results[-1]}
