@@ -1,241 +1,129 @@
-# Enhanced script to collect NCAA basketball data for ALL teams
+# data_collection.py - Fetch NCAA Data from API
 import pandas as pd
 import requests
 import json
 import time
-from tqdm import tqdm  # For progress bar
+import os
 
-# 1. Fetch basic team data and save to CSV
-def get_teams_to_csv():
-    print("Fetching NCAA basketball teams data...")
+def get_ncaa_teams():
     url = "https://site.api.espn.com/apis/site/v2/sports/basketball/mens-college-basketball/teams?limit=400"
+    response = requests.get(url)
+    response.raise_for_status()
+    data = response.json()
+    
+    teams = []
+    for item in data['sports'][0]['leagues'][0]['teams']:
+        team = item['team']
+        teams.append({
+            'id': team['id'],
+            'name': team['displayName'],
+            'abbreviation': team.get('abbreviation', ''),
+            'conference': team.get('conferenceId', '')
+        })
+    
+    df = pd.DataFrame(teams)
+    df.to_csv('ncaa_teams.csv', index=False)
+    return df
 
-    try:
-        response = requests.get(url)
-        response.raise_for_status()
-        data = response.json()
-
-        teams = []
-        for item in data['sports'][0]['leagues'][0]['teams']:
-            team = item['team']
-            teams.append({
-                'id': team['id'],
-                'name': team['displayName'],
-                'abbreviation': team.get('abbreviation', ''),
-                'location': team.get('location', ''),
-                'conference': team.get('conferenceId', '')
-            })
-
-        df = pd.DataFrame(teams)
-        df.to_csv('ncaa_teams.csv', index=False)
-        print(f"Saved {len(df)} teams to ncaa_teams.csv")
-        return df
-    except Exception as e:
-        print(f"Error fetching teams: {e}")
-        return pd.DataFrame()
-
-# 2. Get statistics for ALL teams and save both raw and processed data
-def get_all_team_stats(teams_df, batch_size=50):
-    """
-    Fetch statistics for all teams in batches to avoid rate limiting
-
-    Args:
-        teams_df: DataFrame containing team information
-        batch_size: Number of teams to process before saving intermediate results
-    """
-    print(f"Fetching statistics for ALL teams ({len(teams_df)} total)...")
-    if teams_df.empty:
-        return
-
-    all_stats = []
-    raw_responses = []
-
-    # Create a directory for individual team JSON files if needed
-    import os
-    if not os.path.exists('team_stats'):
-        os.makedirs('team_stats')
-
-    # Process all teams with a progress bar
-    for idx, team in tqdm(teams_df.iterrows(), total=len(teams_df), desc="Fetching team stats"):
-        team_id = team['id']
-        team_name = team['name']
-
-        url = f"https://site.api.espn.com/apis/site/v2/sports/basketball/mens-college-basketball/teams/{team_id}/statistics"
-        try:
-            response = requests.get(url)
-
-            # Save response regardless of status to check what went wrong
-            if response.status_code == 200:
-                data = response.json()
-
-                # Save individual team raw response
-                with open(f"team_stats/team_{team_id}.json", 'w') as f:
-                    json.dump(data, f, indent=2)
-
-                # Add to combined raw responses
-                raw_responses.append({
-                    'team_id': team_id,
-                    'team_name': team_name,
-                    'raw_response': json.dumps(data)
-                })
-
-                # Extract stats for CSV
-                team_stats = {'team_id': team_id, 'team_name': team_name}
-
-                # Try to get record summary
-                try:
-                    if 'team' in data.get('results', {}):
-                        team_stats['record'] = data['results']['team'].get('recordSummary', 'N/A')
-                        team_stats['standing'] = data['results']['team'].get('standingSummary', 'N/A')
-                except Exception as e:
-                    pass  # Skip if record not available
-
-                # Process statistics categories
-                try:
-                    for category in data.get('results', {}).get('stats', {}).get('categories', []):
-                        category_name = category.get('name', '')
-                        for stat in category.get('stats', []):
-                            stat_name = stat.get('name', '')
-                            stat_value = stat.get('value', '')
-                            # Create name like "offensive_fieldGoalPct" or "defensive_steals"
-                            column_name = f"{category_name}_{stat_name}"
-                            team_stats[column_name] = stat_value
-                except Exception as e:
-                    print(f"  Error processing stats for {team_name}: {e}")
-
-                all_stats.append(team_stats)
-            else:
-                print(f"  No stats available for {team_name} (status code: {response.status_code})")
-
-            # Add a small delay to avoid rate limiting
-            time.sleep(0.2)
-
-            # Save intermediate results in batches
-            if len(all_stats) % batch_size == 0:
-                save_progress(all_stats, raw_responses, f"intermediate_{len(all_stats)}")
-
-        except Exception as e:
-            print(f"  Error fetching stats for {team_name}: {e}")
-
-    # Final save
-    save_progress(all_stats, raw_responses, "final")
-
-    return all_stats
-
-def save_progress(all_stats, raw_responses, suffix=""):
-    """Save current progress to avoid losing data if script fails"""
-    if all_stats:
-        # Save processed stats
-        stats_df = pd.DataFrame(all_stats)
-        stats_df.to_csv(f'team_stats_{suffix}.csv', index=False)
-        print(f"Saved statistics for {len(stats_df)} teams to team_stats_{suffix}.csv")
-
-        # Save raw responses
-        with open(f'team_stats_raw_{suffix}.json', 'w') as f:
-            json.dump(raw_responses, f, indent=2)
-            print(f"Saved raw JSON responses to team_stats_raw_{suffix}.json")
-
-# 3. Get rankings data
-def get_rankings_to_csv():
-    print("Fetching NCAA basketball rankings...")
-    url = "https://site.api.espn.com/apis/site/v2/sports/basketball/mens-college-basketball/rankings"
-
-    try:
-        response = requests.get(url)
-        response.raise_for_status()
-        data = response.json()
-
-        # Save raw JSON
-        with open('rankings_raw.json', 'w') as f:
-            json.dump(data, f, indent=2)
-            print("Saved raw rankings data to rankings_raw.json")
-
-        # Extract all polls, not just AP
-        rankings = []
-        for poll in data.get('rankings', []):
-            poll_name = poll.get('name', 'Unknown Poll')
-            for rank in poll.get('ranks', []):
-                rankings.append({
-                    'poll': poll_name,
-                    'rank': rank.get('current', ''),
-                    'team_id': rank.get('team', {}).get('id', ''),
-                    'team_name': rank.get('team', {}).get('name', ''),
-                    'record': rank.get('recordSummary', ''),
-                    'points': rank.get('points', ''),
-                    'trend': rank.get('trend', '')
-                })
-
-        if rankings:
-            df = pd.DataFrame(rankings)
-            df.to_csv('ncaa_rankings.csv', index=False)
-            print(f"Saved {len(df)} team rankings to ncaa_rankings.csv")
-            return df
-        else:
-            print("No ranking data found")
-            return pd.DataFrame()
-    except Exception as e:
-        print(f"Error fetching rankings: {e}")
-        return pd.DataFrame()
-
-# 4. Get bracketology data
-def get_bracketology_to_json():
-    print("Fetching NCAA bracketology data...")
-    url = "https://site.api.espn.com/apis/v2/sports/basketball/mens-college-basketball/bracketology"
-
-    try:
-        response = requests.get(url)
+def get_historical_brackets(start_year=2010, end_year=2023):
+    all_tournaments = {}
+    
+    for year in range(start_year, end_year + 1):
+        url = f"https://api.sportsdata.io/v3/cbb/scores/json/Tournament/{year}"
+        headers = {"Ocp-Apim-Subscription-Key": os.getenv("SPORTSDATA_API_KEY")}  # Ensure API key is stored securely
+        
+        response = requests.get(url, headers=headers)
         if response.status_code == 200:
-            data = response.json()
-            with open('bracketology_raw.json', 'w') as f:
-                json.dump(data, f, indent=2)
-                print("Saved raw bracketology data to bracketology_raw.json")
-
-            # Process into CSV for easier analysis
-            try:
-                teams = []
-                for region in data.get('regions', []):
-                    region_name = region.get('name', '')
-                    for seed in region.get('teams', []):
-                        seed_num = seed.get('seedNum', '')
-                        for team in seed.get('teams', []):
-                            teams.append({
-                                'region': region_name,
-                                'seed': seed_num,
-                                'team_id': team.get('id', ''),
-                                'team_name': team.get('name', ''),
-                                'record': team.get('record', '')
-                            })
-
-                if teams:
-                    df = pd.DataFrame(teams)
-                    df.to_csv('bracketology.csv', index=False)
-                    print(f"Saved {len(df)} bracketology teams to bracketology.csv")
-            except Exception as e:
-                print(f"Error processing bracketology data: {e}")
-
-            return data
+            all_tournaments[year] = response.json()
         else:
-            print(f"Bracketology data not available (status code: {response.status_code})")
-            return None
-    except Exception as e:
-        print(f"Error fetching bracketology: {e}")
-        return None
+            print(f"Warning: Could not fetch tournament data for {year}. Status Code: {response.status_code}")
+        time.sleep(1)
+    
+    with open('historical_brackets.json', 'w') as f:
+        json.dump(all_tournaments, f, indent=4)
+    return all_tournaments
 
-# Run the functions to collect and save the data
+# Run data collection
 if __name__ == "__main__":
-    print("Starting NCAA basketball data collection...")
+    get_ncaa_teams()
+    get_historical_brackets()
 
-    # Get team info first
-    teams_df = get_teams_to_csv()
 
-    # Get rankings
-    get_rankings_to_csv()
+# simulator.py - Simulates March Madness Tournament
+import pandas as pd
+import random
 
-    # Get bracketology
-    get_bracketology_to_json()
+class MarchMadnessSimulator:
+    def __init__(self, use_real_data=True):
+        self.use_real_data = use_real_data
+        self.teams_info = None
+        self.team_strength = {}
+        
+        if self.use_real_data:
+            self.load_data()
+        else:
+            self.create_mock_data()
+    
+    def load_data(self):
+        try:
+            self.teams_info = pd.read_csv('ncaa_teams.csv')
+            if self.teams_info.empty:
+                raise ValueError("ncaa_teams.csv is empty!")
+            self.calculate_team_strength()
+        except Exception as e:
+            print(f"Error loading real data: {e}")
+            self.create_mock_data()
+    
+    def create_mock_data(self):
+        num_teams = 68
+        self.teams_info = pd.DataFrame({
+            'id': [str(i) for i in range(1, num_teams + 1)],
+            'name': [f"Fake Team {i}" for i in range(1, num_teams + 1)]
+        })
+    
+    def calculate_team_strength(self):
+        self.team_strength = {team['id']: random.uniform(0.5, 1.0) for _, team in self.teams_info.iterrows()}
+    
+    def get_tournament_teams(self):
+        if self.teams_info is None or self.teams_info.empty:
+            print("Error: No real teams loaded!")
+            return {}
+        return {team['id']: team['name'] for _, team in self.teams_info.iterrows()}
+    
+    def simulate_tournament(self, num_simulations=1000):
+        results = []
+        valid_teams = self.get_tournament_teams()
+        for _ in range(num_simulations):
+            winner = random.choice(list(valid_teams.values()))
+            results.append(winner)
+        return results
 
-    # Get team stats (this will take the longest)
-    if not teams_df.empty:
-        get_all_team_stats(teams_df)
 
-    print("\nData collection complete! All data has been saved to CSV and JSON files.")
+# backtesting_framework.py - Runs Backtesting
+import json
+
+def run_backtesting(simulator, num_simulations=500):
+    with open('historical_brackets.json', 'r') as f:
+        historical_data = json.load(f)
+    
+    accuracy_results = {}
+    for year, tournament in historical_data.items():
+        predicted_winners = simulator.simulate_tournament(num_simulations)
+        real_winner = tournament.get('champion', {}).get('name', None)
+        if real_winner:
+            accuracy_results[year] = predicted_winners.count(real_winner) / num_simulations
+    
+    with open('backtesting_results.json', 'w') as f:
+        json.dump(accuracy_results, f, indent=4)
+    
+    return accuracy_results
+
+
+# run_backtesting.py - Main Execution Script
+if __name__ == "__main__":
+    simulator = MarchMadnessSimulator(use_real_data=True)
+    run_backtesting(simulator)
+    final_predictions = simulator.simulate_tournament(10000)
+    with open('final_consensus_bracket.json', 'w') as f:
+        json.dump(final_predictions, f, indent=4)
+    print("Final March Madness Predictions Saved")
