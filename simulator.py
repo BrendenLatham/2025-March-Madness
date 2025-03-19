@@ -872,8 +872,14 @@ class MarchMadnessSimulator:
 
     def generate_bracket_visualization(self, results):
         """Generate a text-based bracket visualization from simulation results"""
-        last_sim = results['last_simulation']
-
+        # Handle different input formats
+        if 'last_simulation' in results:
+            # Format from generate_consensus_bracket
+            last_sim = results['last_simulation']
+        else:
+            # Original format from run_simulation
+            last_sim = results['last_simulation'] if 'last_simulation' in results else results[-1]
+    
         bracket = "========== MARCH MADNESS SIMULATED BRACKET ==========\n\n"
 
         # Regions
