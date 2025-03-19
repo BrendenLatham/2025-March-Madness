@@ -310,9 +310,11 @@ def run_optimized_simulation(simulator, optimized_params, num_simulations=1000):
     print(f"Running {num_simulations} simulations with optimized parameters...")
     simulation_results = simulator.simulate_tournament(num_simulations=num_simulations)
     
-    # Generate consensus bracket
+    # Generate consensus bracket - ensure compatible format
     print("Generating consensus bracket...")
-    consensus_bracket = simulator.generate_bracket_visualization(simulation_results)
+    consensus_bracket = {
+        'last_simulation': simulation_results[-1]
+    }
     
     # Save results
     with open("optimized_simulation_results.json", "w") as f:
