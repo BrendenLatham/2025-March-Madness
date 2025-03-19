@@ -1,56 +1,47 @@
-# backtesting_framework.py - Runs Backtesting Using ESPN Historical Data
 import json
-import os
 import pandas as pd
-from simulator import MarchMadnessSimulator
 
 class MarchMadnessBacktester:
-    """Backtesting framework to evaluate model accuracy using ESPN data."""
-    
-    def __init__(self, simulator, years, data_dir="historical_data"):
+    def __init__(self, simulator, years=None):
         self.simulator = simulator
-        self.years = years
-        self.data_dir = data_dir
+        self.years = years or list(range(2010, 2023))
         self.historical_data = {}
-        self.metrics = {}
-    
+
     def load_historical_tournaments(self):
-        """Load historical tournament data from ESPN JSON files."""
-        file_path = os.path.join(self.data_dir, "tournaments.json")
-        if os.path.exists(file_path):
-            with open(file_path, 'r') as f:
+        """
+        Loads ESPN tournament data.
+        """
+        try:
+            with open("historical_data/tournaments.json", "r") as f:
                 self.historical_data = json.load(f)
-            print(f"Loaded data for {len(self.historical_data)} tournaments.")
-        else:
-            raise FileNotFoundError("Historical tournament data missing. Run data collection first.")
-    
-    def run_backtests(self, num_simulations=500):
-        """Run backtesting using historical tournament winners."""
-        all_metrics = {}
-        
+            print(f"✅ Loaded historical tournament data for {len(self.historical_data)} years.")
+        except Exception as e:
+            print(f"❌ ERROR: Could not load tournament data. {e}")
+
+    def run_backtest(self):
+        """
+        Simulates tournaments and compares with historical ESPN results.
+        """
         for year in self.years:
             if str(year) not in self.historical_data:
-                print(f"No data available for {year}, skipping...")
+                print(f"⚠ No data for {year}, skipping...")
                 continue
-            
-            real_winner = self.historical_data[str(year)].get("champion")
-            if not real_winner:
-                print(f"Skipping {year}: No champion data available.")
-                continue
-            
-            predicted_winners = self.simulator.simulate_tournament(num_simulations)
-            accuracy = predicted_winners.count(real_winner) / num_simulations
-            
-            all_metrics[year] = {"accuracy": accuracy}
-        
-        with open("backtesting_results.json", "w") as f:
-            json.dump(all_metrics, f, indent=4)
-        
-        print("Backtesting completed. Results saved to backtesting_results.json")
-        return all_metrics
+
+            print(f"🔄 Running backtest for {year}...")
+            simulated_results = self.simulator.run_simulation()
+            actual_results = self.historical_data[str(year)]["rounds"]
+
+            # Compare simulated vs actual results
+            correct_predictions = sum(
+                1 for rnd in simulated_results["rounds"] if rnd in actual_results
+            )
+
+            print(f"✅ {correct_predictions} correct predictions for {year}.")
 
 if __name__ == "__main__":
+    from simulator import MarchMadnessSimulator
+
     simulator = MarchMadnessSimulator(use_real_data=True)
-    backtester = MarchMadnessBacktester(simulator, years=[2015, 2016, 2017, 2018, 2019, 2020, 2021, 2022, 2023])
+    backtester = MarchMadnessBacktester(simulator)
     backtester.load_historical_tournaments()
-    backtester.run_backtests(num_simulations=500)
+    backtester.run_backtest()
