@@ -20,8 +20,6 @@ import json
 import argparse
 from datetime import datetime
 
-parser.add_argument('--quiet', action='store_true',
-                  help='Suppress detailed output during simulations')
 
 # Import your actual simulator
 try:
@@ -67,6 +65,10 @@ def parse_arguments():
     
     parser.add_argument('--datadir', type=str, default="historical_data",
                       help='Directory containing historical data')
+
+    parser.add_argument('--quiet', action='store_true',
+                  help='Suppress detailed output during simulations')
+
     
     return parser.parse_args()
 
@@ -102,7 +104,8 @@ def main():
     simulator, backtester, tuner, optimized_params = run_backtesting_process(
         simulator=simulator, 
         years=years,
-        data_dir=args.datadir
+        data_dir=args.datadir,
+        verbose=not args.quiet  # Pass the inverse of quiet flag
     )
     
     # Step 3: Run optimized simulation
