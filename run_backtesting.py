@@ -20,6 +20,9 @@ import json
 import argparse
 from datetime import datetime
 
+parser.add_argument('--quiet', action='store_true',
+                  help='Suppress detailed output during simulations')
+
 # Import your actual simulator
 try:
     # Try to import the simulator directly
