@@ -312,7 +312,7 @@ def run_optimized_simulation(simulator, optimized_params, num_simulations=1000):
     
     # Generate consensus bracket
     print("Generating consensus bracket...")
-    consensus_bracket = simulator.generate_consensus_bracket(simulation_results)
+    consensus_bracket = simulator.generate_bracket_visualization(simulation_results)
     
     # Save results
     with open("optimized_simulation_results.json", "w") as f:
