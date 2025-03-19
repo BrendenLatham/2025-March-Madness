@@ -1024,4 +1024,12 @@ class MarchMadnessSimulator:
 
     def generate_consensus_bracket(self, simulation_results):
         """Alias method for backtesting compatibility"""
-        return {'last_simulation': simulation_results[-1]}
+        last_sim = simulation_results[-1]
+        
+        # Create a consensus bracket with the structure expected by the backtesting framework
+        consensus_bracket = {
+            'last_simulation': last_sim,
+            'champion': last_sim.get('champion', None)  # Extract champion from the last simulation
+        }
+        
+        return consensus_bracket
