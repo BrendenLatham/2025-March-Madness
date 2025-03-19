@@ -1,16 +1,14 @@
-# run_backtesting.py - Main Execution Script
+# run_backtesting.py - Main Execution Script Using ESPN Data
 import json
 import argparse
 from simulator import MarchMadnessSimulator
 from backtesting_framework import MarchMadnessBacktester
 
-
 def parse_arguments():
     parser = argparse.ArgumentParser(description='March Madness Backtesting Runner')
-    parser.add_argument('--years', type=str, help='Years to include in backtesting (comma-separated, e.g., "2015,2016,2017")')
+    parser.add_argument('--years', type=str, help='Years to include in backtesting')
     parser.add_argument('--sims', type=int, default=500, help='Number of simulations per backtest')
     return parser.parse_args()
-
 
 def main():
     args = parse_arguments()
